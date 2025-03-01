@@ -1,18 +1,37 @@
-/**
- * Welcome to Cloudflare Workers! This is your first worker.
- *
- * - Run `npm run dev` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your worker in action
- * - Run `npm run deploy` to publish your worker
- *
- * Bind resources to your worker in `wrangler.jsonc`. After adding bindings, a type definition for the
- * `Env` object can be regenerated with `npm run cf-typegen`.
- *
- * Learn more at https://developers.cloudflare.com/workers/
- */
-
 export default {
-	async fetch(request, env, ctx): Promise<Response> {
-		return new Response('Hello World!');
+	async fetch(request: Request): Promise<Response> {
+		const url = new URL(request.url);
+		const userId: string | null = url.searchParams.get("user_id");
+
+		if (!userId) {
+			return new Response(JSON.stringify({ error: "Missing user_id parameter" }), {
+				headers: { "Content-Type": "application/json" },
+				status: 400,
+			});
+		}
+
+		try {
+			const drupalApiUrl = `https://www.drupal.org/api-d7/user/${userId}.json`;
+			const response = await fetch(drupalApiUrl);
+
+			if (!response.ok) {
+				throw new Error(`Failed to fetch Drupal.org data (Status: ${response.status})`);
+			}
+
+			const data = await response.json();
+
+			return new Response(JSON.stringify(data, null, 2), {
+				headers: { "Content-Type": "application/json" },
+			});
+
+		} catch (error) {
+			return new Response(
+				JSON.stringify({ error: (error as Error).message }),
+				{
+					headers: { "Content-Type": "application/json" },
+					status: 500,
+				}
+			);
+		}
 	},
-} satisfies ExportedHandler<Env>;
+};
