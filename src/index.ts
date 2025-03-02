@@ -1,5 +1,3 @@
-import { JSDOM } from "jsdom";
-
 export default {
 	async fetch(request: Request): Promise<Response> {
 		const url = new URL(request.url);
@@ -13,50 +11,16 @@ export default {
 		}
 
 		try {
-			// Drupal profile page URL
-			const profileUrl = `https://www.drupal.org/user/${userId}`;
-
-			// Fetch the profile page
-			const response = await fetch(profileUrl, {
-				headers: { "User-Agent": "Mozilla/5.0 (compatible; CloudflareWorker/1.0)" },
-			});
+			const drupalApiUrl = `https://www.drupal.org/api-d7/user/${userId}.json`;
+			const response = await fetch(drupalApiUrl);
 
 			if (!response.ok) {
-				throw new Error(`Failed to fetch Drupal.org profile page (Status: ${response.status})`);
+				throw new Error(`Failed to fetch Drupal.org data (Status: ${response.status})`);
 			}
 
-			// Parse the HTML using JSDOM
-			const html = await response.text();
-			const dom = new JSDOM(html);
-			const document = dom.window.document;
+			const data = await response.json();
 
-			// Select the issue credit list
-			const issueCredits: { project: string; project_url: string; issue_count: string; issue_url: string }[] = [];
-
-			const issueElements = document.querySelectorAll(
-				".view-issue-credit .view-content ul li"
-			);
-
-			issueElements.forEach((element) => {
-				const projectElement = element.querySelector(
-					".views-field-drupalorg-project-subtitle .field-content a"
-				);
-				const issueCountElement = element.querySelector(
-					".views-field-nid .field-content a"
-				);
-
-				if (projectElement && issueCountElement) {
-					issueCredits.push({
-						project: projectElement.textContent?.trim() || "",
-						project_url: `https://www.drupal.org${projectElement.getAttribute("href")}`,
-						issue_count: issueCountElement.textContent?.trim() || "",
-						issue_url: `https://www.drupal.org${issueCountElement.getAttribute("href")}`,
-					});
-				}
-			});
-
-			// Return the structured JSON response
-			return new Response(JSON.stringify({ user_id: userId, issue_credits: issueCredits }, null, 2), {
+			return new Response(JSON.stringify(data, null, 2), {
 				headers: { "Content-Type": "application/json" },
 			});
 
